@@ -1,0 +1,223 @@
+﻿<html>
+
+<head>
+    <title>SolarSystem</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <script src="three.js"></script>
+	<script src="OBJLoader.js"></script>
+	<script src="OrbitControls.js"></script>
+
+    <script>
+        "use strict"; // https://stackoverflow.com/q/1335851/72470
+
+        var camera, scene, renderer, controls, orbitToggle, orbitSpeed, saturnRings, stars, axisOrbitSpeed;
+		var sphere = new Array();
+		var textureLoader = new THREE.TextureLoader();
+
+        // Load textures for each object
+		var sunTexture        = textureLoader.load('textures/sun.jpg');
+		var mercuryTexture    = textureLoader.load('textures/mercury.jpg');
+		var venusTexture      = textureLoader.load('textures/venus.jpg');
+		var earthTexture      = textureLoader.load('textures/earth.jpg');
+		var marsTexture       = textureLoader.load('textures/mars.jpg');
+		var jupiterTexture    = textureLoader.load('textures/jupiter.jpg');
+		var saturnTexture     = textureLoader.load('textures/saturn.jpg');
+		var uranusTexture     = textureLoader.load('textures/uranus.jpg');
+		var neptuneTexture    = textureLoader.load('textures/neptune.jpg');
+		var saturnRingTexture = textureLoader.load('textures/ring.png');
+
+        //Initialise the scene, and draw it for the first time.
+        init();
+        animate();
+
+        // Listen for keyboard events, to react to them.
+        document.addEventListener('keydown', handleKeyDown);
+		
+        // Scene initialisation. This function is only run once, at the very beginning.
+        function init() {
+            scene = new THREE.Scene();
+
+            // Set up the camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(58, 14, 60);
+            camera.lookAt(0,0,0);
+
+            // Draw each of the planets and position them
+			drawPlanets("sun",	    sunTexture,		12,   0, 0);
+			drawPlanets("mercury",  mercuryTexture, 0.2, 13, 0);
+			drawPlanets("venus",	venusTexture,	0.4, 15, 3.1);
+			drawPlanets("earth",	earthTexture,	0.6, 17, 0.4);
+			drawPlanets("mars",		marsTexture,	0.5, 20, 0.44);
+			drawPlanets("jupiter",	jupiterTexture,	3.4, 27, 0.05);
+            drawPlanets("saturn",   saturnTexture,  3.0, 40, 0.047);
+            drawPlanets("uranus",   uranusTexture,  1.0, 50, 1.71);
+            drawPlanets("neptune",  neptuneTexture, 1.0, 60, 0.49);
+
+            // The sun is set to a basic material (As it is the source of light and should be the brightest)
+            sphere["sun"].material = new THREE.MeshBasicMaterial({ color: 0xffffff, map: sunTexture });
+
+            // Create the rings for Saturn
+			var satRingGeometry = new THREE.RingGeometry( 3.75, 5.5, 64 , 1);
+			var satRingMaterial= new THREE.MeshPhongMaterial( { side: THREE.DoubleSide , map:saturnRingTexture} );
+			saturnRings = new THREE.Mesh( satRingGeometry, satRingMaterial );
+			saturnRings.rotation.x = 1.5708;
+			saturnRings.rotation.y = 0.25;
+            scene.add(saturnRings);
+
+            // Make Saturn a parent so rings follow it's orbit
+			sphere["saturn"].add(saturnRings);
+			
+            // Dim ambient light so dark side of planets can still be seen
+			var ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            scene.add(ambientLight);
+
+            // Main light source of the scene
+			var sunLight = new THREE.PointLight(0xFF8B00, 2, 100, 1);
+			scene.add(sunLight);
+
+            // Speeds are relative to these constants
+            orbitSpeed = 0.1;
+            axisOrbitSpeed = 0.01;
+
+            // Create background stars
+            backgroundStars();
+
+            // Set up the Web GL renderer.
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio); // HiDPI/retina rendering
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls( camera, renderer.domElement );
+            // Handle resizing of the browser window.
+            window.addEventListener('resize', handleResize, false);
+        }
+
+        // Handle resizing of the browser window.
+        function handleResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Animation loop function. This function is called whenever an update is required.
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Toggle check for the scene to 'start' or 'stop'
+            if (orbitToggle) {
+                // Orbit around the sun
+                planetOrbits("mercury", orbitSpeed * 1.607);
+                planetOrbits("venus",   orbitSpeed * 1.74);
+                planetOrbits("earth",   orbitSpeed);
+                planetOrbits("mars",    orbitSpeed * 0.802);
+                planetOrbits("jupiter", orbitSpeed * 0.434);         
+                planetOrbits("saturn",  orbitSpeed * 0.323);
+                planetOrbits("uranus",  orbitSpeed * 0.228);
+                planetOrbits("neptune", orbitSpeed * 0.182);
+
+                // Planet axis spins
+                sphere["sun"].rotation.y     += axisOrbitSpeed * 1;
+                sphere["mercury"].rotation.y += axisOrbitSpeed * 0.006;
+                sphere["venus"].rotation.y   += axisOrbitSpeed * 0.004;
+                sphere["earth"].rotation.y   += axisOrbitSpeed;
+                sphere["mars"].rotation.y    += axisOrbitSpeed * 0.5;
+                sphere["jupiter"].rotation.y += axisOrbitSpeed * 28;
+                sphere["saturn"].rotation.y  += axisOrbitSpeed * 22;
+                sphere["uranus"].rotation.y  += axisOrbitSpeed * 9;
+                sphere["neptune"].rotation.y += axisOrbitSpeed * 6;
+
+                // Saturn rings animation
+                saturnRings.rotation.z -= axisOrbitSpeed;
+                stars.rotation.y += 0.001;
+            };
+            
+
+			controls.update();
+            // Render the current scene to the screen.
+            renderer.render(scene, camera);
+        }
+
+        // Handle keyboard presses.
+        function handleKeyDown(event) {
+            switch (event.keyCode) {
+				case 83: // s = start/stop scene
+					if (orbitToggle) {
+                        orbitToggle = 0;
+                    } else {
+                        orbitToggle = 1;
+                    }
+                    break;
+                case 38: // Up key = Increase orbit speed
+                    orbitSpeed += 0.01;
+                    axisOrbitSpeed += 0.001;
+                    break;
+                case 40: // Down key = Decrease speed
+                    // Condition so orbit doesn't get reversed
+                    if (orbitSpeed >= 0.01) {
+                        orbitSpeed -= 0.01;
+                        axisOrbitSpeed -= 0.001;
+                    }
+                    break;
+                    
+			}
+        }
+
+        // Draw planets
+        function drawPlanets(planet, texture, size, xLocation, axisTilt) {
+            // Create a sphere of given size
+            var geometry = new THREE.SphereGeometry(size, 64, 64);
+            // Apply given planet texture
+			var material = new THREE.MeshPhongMaterial({map : texture});
+			sphere[planet] = new THREE.Mesh(geometry,material);
+            scene.add(sphere[planet]);
+            // Move current planet to given location and apply axis tilt
+			sphere[planet].position.set(xLocation, 0, 0);
+			sphere[planet].rotation.z = axisTilt;
+		}
+
+        // Orbit the sun 
+        function planetOrbits(planet, speed, axisTilt) {
+            // Convert between spherical and cartesian coordinates for the planet orbit
+			var RPT = new THREE.Spherical();
+            RPT.setFromVector3(sphere[planet].position);
+            RPT.theta += speed;
+            sphere[planet].position.setFromSpherical(RPT);
+            
+        }
+
+        // Draw background stars
+        function backgroundStars() {
+            var starsGeom = new THREE.Geometry();
+
+            // Create 100000 random points
+            for (var i = 0; i < 100000; i++) {
+                var star = new THREE.Vector3();
+                star.x = THREE.Math.randFloatSpread(2000);
+                star.y = THREE.Math.randFloatSpread(2000);
+                star.z = THREE.Math.randFloatSpread(2000);
+
+                starsGeom.vertices.push(star);
+            }
+            var starsMaterial = new THREE.PointsMaterial({ size:0.5, color: 0xffffff});
+            stars = new THREE.Points(starsGeom, starsMaterial);
+            scene.add(stars);   
+        }
+    </script>
+</body>
+</html>
